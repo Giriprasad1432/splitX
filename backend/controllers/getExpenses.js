@@ -7,26 +7,21 @@ const POPULATE_CONFIG = [
     { path: "splits.memberId", select: "name" }
 ];
 
-const ALLOWED_STATUSES = ["pending", "settled"];
-
 const getExpenses = async (req, res) => {
     try {
-        const { status } = req.query;
-
         const filter = { roomId: req.room._id };
-
-        if (status !== undefined) {
-            if (!ALLOWED_STATUSES.includes(status)) {
-                return res.status(400).json({
-                    message: `Invalid status filter. Must be one of: ${ALLOWED_STATUSES.join(", ")}`
-                });
-            }
-            filter.status = status;
-        }
 
         const expenses = await Expense.find(filter)
             .populate(POPULATE_CONFIG)
             .sort({ createdAt: -1 });
+
+        if (expenses.length === 0) {
+            return res.status(200).json({
+                message: "No expenses found",
+                count: 0,
+                expenses: []
+            });
+        }
 
         return res.status(200).json({
             message: "Expenses fetched successfully",
