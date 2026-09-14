@@ -13,8 +13,9 @@ const joinRoom = async (req, res) => {
         });
 
         if (existingMember) {
-            return res.status(400).json({
-                message: "Member already exists"
+            return res.status(200).json({
+                message: "Joined room successfully (existing member)",
+                member: existingMember
             });
         }
 
