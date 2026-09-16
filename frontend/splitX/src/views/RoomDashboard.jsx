@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Button, Card, CardContent, Badge } from '../components/ui/ui';
-import { Copy, Plus, Users, Receipt, User, ArrowRight, Loader2, LogOut } from 'lucide-react';
+import { Copy, Plus, Users, Receipt, User, ArrowRight, Loader2, LogOut, Trash2 } from 'lucide-react';
 import { api } from '../api';
 import { useRoom } from '../context/RoomContext';
 import { cn } from '../lib/utils';
@@ -22,6 +22,11 @@ export default function RoomDashboard() {
   const [isAddingPerson, setIsAddingPerson] = useState(false);
   const [newPersonName, setNewPersonName] = useState('');
   const [isAddingSubmitting, setIsAddingSubmitting] = useState(false);
+  const [addSuccessMsg, setAddSuccessMsg] = useState('');
+
+  // Delete Expense State
+  const [confirmDeleteId, setConfirmDeleteId] = useState(null);
+  const [isDeletingId, setIsDeletingId] = useState(null);
 
   useEffect(() => {
     const currentSession = loadSession(roomCode);
@@ -63,20 +68,36 @@ export default function RoomDashboard() {
 
   const handleAddPerson = async () => {
     if (!newPersonName.trim()) return;
+    const nameToAdd = newPersonName.trim();
     setIsAddingSubmitting(true);
     setError('');
     try {
-      await api.addMember(roomCode, newPersonName);
+      await api.addMember(roomCode, nameToAdd);
       setNewPersonName('');
       setIsAddingPerson(false);
-      // Refresh balances to show the new person (with 0 balance) if needed,
-      // though typically they won't show until an expense is added.
-      // We call fetchData to refresh everything seamlessly.
+      
+      setAddSuccessMsg(`${nameToAdd} added successfully!`);
+      setTimeout(() => setAddSuccessMsg(''), 3000);
+      
       fetchData();
     } catch (err) {
       setError(err.message || "Failed to add person");
     } finally {
       setIsAddingSubmitting(false);
+    }
+  };
+
+  const handleDeleteExpense = async (expenseId) => {
+    setIsDeletingId(expenseId);
+    try {
+      await api.deleteExpense(roomCode, expenseId);
+      setConfirmDeleteId(null);
+      fetchData();
+    } catch (err) {
+      setError(err.message || 'Failed to delete expense');
+      setConfirmDeleteId(null);
+    } finally {
+      setIsDeletingId(null);
     }
   };
 
@@ -168,31 +189,58 @@ export default function RoomDashboard() {
         {/* Add Person Inline Input */}
         {isAddingPerson && (
           <Card className="border-0 shadow-sm overflow-hidden animate-in fade-in slide-in-from-top-2">
-            <div className="p-4 flex items-center gap-2 bg-card">
-              <div className="flex-1">
-                <input 
-                  type="text" 
-                  placeholder="Enter person's name..." 
-                  className="w-full h-10 px-3 text-sm rounded-md border border-input bg-background focus:outline-none focus:ring-2 focus:ring-primary"
-                  value={newPersonName}
-                  onChange={e => setNewPersonName(e.target.value)}
-                  onKeyDown={e => {
-                    if (e.key === 'Enter') handleAddPerson();
-                  }}
-                  autoFocus
-                  disabled={isAddingSubmitting}
-                />
+            <div className="p-4 flex flex-col gap-2 bg-card">
+              <div className="flex items-center gap-2">
+                <div className="flex-1">
+                  <input 
+                    type="text" 
+                    placeholder="Enter person's name..." 
+                    className="w-full h-10 px-3 text-sm rounded-md border border-input bg-background focus:outline-none focus:ring-2 focus:ring-primary"
+                    value={newPersonName}
+                    onChange={e => setNewPersonName(e.target.value)}
+                    onKeyDown={e => {
+                      if (e.key === 'Enter') handleAddPerson();
+                    }}
+                    autoFocus
+                    disabled={isAddingSubmitting}
+                  />
+                </div>
+                <Button 
+                  size="sm" 
+                  onClick={handleAddPerson}
+                  disabled={!newPersonName.trim() || isAddingSubmitting}
+                  className="h-10"
+                >
+                  {isAddingSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Add'}
+                </Button>
               </div>
-              <Button 
-                size="sm" 
-                onClick={handleAddPerson}
-                disabled={!newPersonName.trim() || isAddingSubmitting}
-                className="h-10"
-              >
-                {isAddingSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Add'}
-              </Button>
             </div>
           </Card>
+        )}
+
+        {addSuccessMsg && (
+          <div className="bg-green-100 text-green-800 text-sm font-medium px-4 py-2 rounded-lg text-center animate-in fade-in slide-in-from-top-2">
+            {addSuccessMsg}
+          </div>
+        )}
+
+        {/* Members List (Avatars) */}
+        {!isLoading && balances.length > 0 && (
+          <div>
+            <h2 className="text-sm font-bold text-muted-foreground mb-3 px-1 uppercase tracking-wider">Room Members ({balances.length})</h2>
+            <div className="flex gap-4 overflow-x-auto pb-2 scrollbar-hide px-1">
+              {balances.map((b) => (
+                <div key={b.memberId} className="flex flex-col items-center gap-1 flex-shrink-0">
+                  <div className="w-12 h-12 rounded-full bg-secondary border-2 border-background shadow-sm flex items-center justify-center text-secondary-foreground font-bold text-lg">
+                    {b.name?.charAt(0).toUpperCase()}
+                  </div>
+                  <span className="text-xs font-medium text-muted-foreground max-w-[60px] truncate">
+                    {b.name}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
         )}
 
         {/* Expenses List */}
@@ -220,21 +268,61 @@ export default function RoomDashboard() {
             <div className="space-y-3">
               {expenses.map(expense => {
                 const isSplit = expense.participants && expense.participants.length > 0;
+                const isConfirming = confirmDeleteId === expense._id;
+                
                 return (
-                  <Card key={expense._id} className="border-0 shadow-sm overflow-visible">
+                  <Card key={expense._id} className="border-0 shadow-sm overflow-visible relative group">
                     <CardContent className="p-4">
-                      <div className="flex justify-between items-start mb-2">
+                      {/* Delete Action Wrapper */}
+                      <div className="absolute top-4 right-4 z-20 flex items-center justify-end">
+                        {isConfirming ? (
+                          <div className="flex gap-2 items-center bg-card rounded-md shadow-sm border border-border p-1">
+                            <Button 
+                              size="sm" 
+                              variant="destructive"
+                              className="h-7 text-xs px-2"
+                              onClick={() => handleDeleteExpense(expense._id)}
+                              disabled={isDeletingId === expense._id}
+                            >
+                              {isDeletingId === expense._id ? <Loader2 className="w-3 h-3 animate-spin mr-1" /> : null}
+                              Confirm
+                            </Button>
+                            <Button 
+                              size="sm" 
+                              variant="ghost" 
+                              className="h-7 text-xs px-2"
+                              onClick={() => setConfirmDeleteId(null)}
+                              disabled={isDeletingId === expense._id}
+                            >
+                              Cancel
+                            </Button>
+                          </div>
+                        ) : (
+                          <div 
+                            className="text-muted-foreground hover:text-destructive cursor-pointer bg-card rounded-full p-1 opacity-100 lg:opacity-0 lg:group-hover:opacity-100 transition-opacity"
+                            onClick={() => setConfirmDeleteId(expense._id)}
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="flex justify-between items-start mb-2 pr-12">
                         <div>
-                          <h3 className="font-semibold">{expense.title}</h3>
+                          <h3 className="font-semibold text-base line-clamp-1">{expense.title}</h3>
                           <p className="text-xs text-muted-foreground mt-0.5">
                             Paid by <span className="font-medium text-foreground">{expense.paidBy?.name}</span>
                           </p>
                         </div>
-                        <div className="text-right">
+                        <div className="text-right flex-shrink-0">
                           <div className="font-bold">₹{expense.amount}</div>
-                          {isSplit && (
+                          {isSplit ? (
                             <div className="text-[10px] uppercase font-bold text-muted-foreground mt-1 tracking-wider">
                               {expense.splitType}
+                            </div>
+                          ) : (
+                            <div className="text-[10px] uppercase font-bold text-orange-500 mt-1 tracking-wider bg-orange-500/10 px-1.5 py-0.5 rounded inline-block">
+                              Not Split Yet
                             </div>
                           )}
                         </div>

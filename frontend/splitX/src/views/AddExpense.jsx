@@ -31,6 +31,7 @@ export default function AddExpense() {
   const [isAddingPerson, setIsAddingPerson] = useState(false);
   const [newPersonName, setNewPersonName] = useState('');
   const [isAddingSubmitting, setIsAddingSubmitting] = useState(false);
+  const [addSuccessMsg, setAddSuccessMsg] = useState('');
 
   useEffect(() => {
     const currentSession = loadSession(roomCode);
@@ -73,7 +74,7 @@ export default function AddExpense() {
               }
             } else {
               // Not split yet
-              setParticipants(fetchedMembers.map(m => m._id));
+              setParticipants([]);
               setSplitType('equal');
             }
           } else {
@@ -103,10 +104,11 @@ export default function AddExpense() {
 
   const handleAddPerson = async () => {
     if (!newPersonName.trim()) return;
+    const nameToAdd = newPersonName.trim();
     setIsAddingSubmitting(true);
     setError('');
     try {
-      const res = await api.addMember(roomCode, newPersonName);
+      const res = await api.addMember(roomCode, nameToAdd);
       const newMember = { _id: res.member._id, name: res.member.name };
       
       setMembers(prev => [...prev, newMember]);
@@ -114,6 +116,9 @@ export default function AddExpense() {
       
       setNewPersonName('');
       setIsAddingPerson(false);
+      
+      setAddSuccessMsg(`${nameToAdd} added to room!`);
+      setTimeout(() => setAddSuccessMsg(''), 3000);
     } catch (err) {
       setError(err.message || "Failed to add person");
     } finally {
@@ -254,7 +259,24 @@ export default function AddExpense() {
 
           <div className="space-y-4">
             <div className="flex items-center justify-between">
-              <h3 className="font-semibold text-lg">Split Details</h3>
+              <div className="flex items-center gap-3">
+                <h3 className="font-semibold text-lg">Split Details</h3>
+                {members.length > 0 && (
+                  <button 
+                    type="button"
+                    className="text-xs text-primary font-medium hover:underline"
+                    onClick={() => {
+                      if (participants.length === members.length) {
+                        setParticipants([]);
+                      } else {
+                        setParticipants(members.map(m => m._id));
+                      }
+                    }}
+                  >
+                    {participants.length === members.length ? 'Deselect All' : 'Select All'}
+                  </button>
+                )}
+              </div>
               <div className="bg-secondary p-1 rounded-lg inline-flex">
                 <button 
                   type="button"
@@ -363,6 +385,12 @@ export default function AddExpense() {
                   >
                     <div className="w-5 h-5 flex items-center justify-center font-bold text-lg">+</div>
                     <span className="font-medium">Add person</span>
+                  </div>
+                )}
+                
+                {addSuccessMsg && (
+                  <div className="bg-green-100 text-green-800 text-xs font-medium px-4 py-2 text-center animate-in fade-in">
+                    {addSuccessMsg}
                   </div>
                 )}
               </div>

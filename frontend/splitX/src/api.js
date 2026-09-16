@@ -53,6 +53,18 @@ export const api = {
     return res.json();
   },
 
+  // Delete an expense
+  deleteExpense: async (roomCode, expenseId) => {
+    const res = await fetch(`${API_BASE}/${roomCode}/expenses/${expenseId}`, {
+      method: 'DELETE',
+    });
+    if (!res.ok) {
+      const error = await res.json();
+      throw new Error(error.message || 'Failed to delete expense');
+    }
+    return res.json();
+  },
+
   // Add an expense
   addExpense: async (roomCode, payload) => {
     const res = await fetch(`${API_BASE}/${roomCode}/expenses`, {

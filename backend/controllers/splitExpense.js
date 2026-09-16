@@ -33,53 +33,60 @@ const splitExpense = async (req, res) => {
             });
         }
 
-        // Validate splitType
-        if (!splitType || !["equal", "unequal"].includes(splitType)) {
+        // Validate splitType only if there are participants
+        if (participants && participants.length > 0) {
+            if (!splitType || !["equal", "unequal"].includes(splitType)) {
+                return res.status(400).json({
+                    message: "splitType must be 'equal' or 'unequal'"
+                });
+            }
+        }
+
+        // Validate participants (allow empty array for un-splitting)
+        if (!Array.isArray(participants)) {
             return res.status(400).json({
-                message: "splitType must be 'equal' or 'unequal'"
+                message: "participants must be an array"
             });
         }
 
-        // Validate participants
-        if (!Array.isArray(participants) || participants.length === 0) {
-            return res.status(400).json({
-                message: "participants must be a non-empty array"
-            });
-        }
-
+        let computedSplits = [];
         let validIds;
 
-        try {
-            validIds = await validateMembersInRoom(
-                participants,
-                roomId
-            );
-        } catch (err) {
-            return res.status(err.status || 400).json({
-                message: err.message
-            });
+        // Only build splits if there are participants
+        if (participants.length > 0) {
+            try {
+                validIds = await validateMembersInRoom(
+                    participants,
+                    roomId
+                );
+            } catch (err) {
+                return res.status(err.status || 400).json({
+                    message: err.message
+                });
+            }
+
+            try {
+                computedSplits = buildSplits(
+                    splitType,
+                    participants,
+                    req.body.amount || expense.amount,
+                    splits,
+                    validIds
+                );
+            } catch (err) {
+                return res.status(err.status || 400).json({
+                    message: err.message
+                });
+            }
         }
 
-        // Build new splits
-        let computedSplits;
+        // Update current split & core details if provided
+        if (req.body.title) expense.title = req.body.title;
+        if (req.body.amount) expense.amount = req.body.amount;
+        if (req.body.paidBy) expense.paidBy = req.body.paidBy;
 
-        try {
-            computedSplits = buildSplits(
-                splitType,
-                participants,
-                expense.amount,
-                splits,
-                validIds
-            );
-        } catch (err) {
-            return res.status(err.status || 400).json({
-                message: err.message
-            });
-        }
-
-        // Update current split
         expense.participants = participants;
-        expense.splitType = splitType;
+        expense.splitType = participants.length > 0 ? splitType : null;
         expense.splits = computedSplits;
 
         await expense.save();
