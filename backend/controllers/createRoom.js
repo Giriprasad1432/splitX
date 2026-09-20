@@ -1,5 +1,6 @@
 import crypto from "crypto";
 import Room from "../models/room.js";
+import Member from "../models/members.js";
 
 const generateRoomCode = () => {
     return crypto
@@ -19,16 +20,24 @@ export const createRoom = async (req, res) => {
             existingRoom = await Room.findOne({ roomCode });
         } while (existingRoom);
 
-        const newRoom = await Room.create({
+        const newRoom = new Room({
             roomCode,
-            createdBy: req.body.createdBy,
             name: req.body.name,
             status: true
         });
 
+        const newMember = await Member.create({
+            roomId: newRoom._id,
+            name: req.body.createdBy
+        });
+
+        newRoom.createdBy = newMember._id;
+        await newRoom.save();
+
         return res.status(201).json({
             message: "Room created successfully",
-            room: newRoom
+            room: newRoom,
+            member: newMember
         });
 
     } catch (error) {

@@ -11,8 +11,9 @@ const room=new Schema({
         required:true,
     },
     createdBy:{
-        type:String,
-        required:true,
+        type:mongoose.Schema.Types.ObjectId,
+        ref:"Member",
+        required:true
     },
     status:{
         type:Boolean,

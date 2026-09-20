@@ -8,6 +8,7 @@ import { getExpenses } from "../controllers/getExpenses.js";
 import { splitExpense } from "../controllers/splitExpense.js";
 import { getBalances } from "../controllers/getBalances.js";
 import { deleteExpense } from "../controllers/deleteExpense.js";
+import { deleteMember } from "../controllers/deleteMember.js";
 
 const router = express.Router();
 
@@ -16,6 +17,8 @@ router.post("/create", createRoom);
 router.post("/:roomCode/join", authRoom, joinRoom);
 
 router.post("/:roomCode/members", authRoom, addMember);
+
+router.delete("/:roomCode/members/:memberId", authRoom, deleteMember);
 
 router.post("/:roomCode/expenses", authRoom, addExpense);
 

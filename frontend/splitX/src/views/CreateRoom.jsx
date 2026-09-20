@@ -22,22 +22,20 @@ export default function CreateRoom() {
     setError('');
 
     try {
-      // 1. Create Room
+      // 1. Create Room and Member
       const createRes = await api.createRoom(roomName, yourName);
       const room = createRes.room;
+      const member = createRes.member;
       
-      // 2. Join the created room immediately so the creator is a Member
-      const joinRes = await api.joinRoom(room.roomCode, yourName);
-      
-      // 3. Save Session
+      // 2. Save Session
       saveSession(room.roomCode, {
         roomCode: room.roomCode,
         roomName: room.name,
-        memberId: joinRes.member._id,
-        memberName: joinRes.member.name
+        memberId: member._id,
+        memberName: member.name
       });
       
-      // 4. Navigate to dashboard
+      // 3. Navigate to dashboard
       navigate(`/room/${room.roomCode}`);
     } catch (err) {
       setError(err.message || 'Failed to create room. Please try again.');

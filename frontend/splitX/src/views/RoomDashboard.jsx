@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Button, Card, CardContent, Badge } from '../components/ui/ui';
-import { Copy, Plus, Users, Receipt, User, ArrowRight, Loader2, LogOut, Trash2 } from 'lucide-react';
+import { Copy, Plus, Users, Receipt, User, ArrowRight, Loader2, LogOut, Trash2, Minus } from 'lucide-react';
 import { api } from '../api';
 import { useRoom } from '../context/RoomContext';
 import { cn } from '../lib/utils';
@@ -14,6 +14,7 @@ export default function RoomDashboard() {
   const [session, setSession] = useState(null);
   const [expenses, setExpenses] = useState([]);
   const [balances, setBalances] = useState([]);
+  const [roomCreator, setRoomCreator] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
   const [copied, setCopied] = useState(false);
@@ -27,6 +28,9 @@ export default function RoomDashboard() {
   // Delete Expense State
   const [confirmDeleteId, setConfirmDeleteId] = useState(null);
   const [isDeletingId, setIsDeletingId] = useState(null);
+
+  // Delete Member State
+  const [memberToDelete, setMemberToDelete] = useState(null);
 
   useEffect(() => {
     const currentSession = loadSession(roomCode);
@@ -47,6 +51,9 @@ export default function RoomDashboard() {
       ]);
       setExpenses(expRes.expenses || []);
       setBalances(balRes.balances || []);
+      if (balRes.room && balRes.room.createdBy) {
+        setRoomCreator(balRes.room.createdBy);
+      }
     } catch (err) {
       setError('Failed to load room data. Please refresh.');
     } finally {
@@ -98,6 +105,19 @@ export default function RoomDashboard() {
       setConfirmDeleteId(null);
     } finally {
       setIsDeletingId(null);
+    }
+  };
+
+  const handleRemoveMember = async () => {
+    if (!memberToDelete) return;
+    try {
+      setError('');
+      await api.removeMember(roomCode, memberToDelete.id, session.memberId);
+      fetchData();
+      setMemberToDelete(null);
+    } catch (err) {
+      setError(err.message || "Failed to remove member");
+      setMemberToDelete(null);
     }
   };
 
@@ -228,15 +248,24 @@ export default function RoomDashboard() {
         {!isLoading && balances.length > 0 && (
           <div>
             <h2 className="text-sm font-bold text-muted-foreground mb-3 px-1 uppercase tracking-wider">Room Members ({balances.length})</h2>
-            <div className="flex gap-4 overflow-x-auto pb-2 scrollbar-hide px-1">
+            <div className="flex gap-4 overflow-x-auto pb-2 pt-2 scrollbar-hide px-1">
               {balances.map((b) => (
-                <div key={b.memberId} className="flex flex-col items-center gap-1 flex-shrink-0">
+                <div key={b.memberId} className="flex flex-col items-center gap-1 flex-shrink-0 relative group">
                   <div className="w-12 h-12 rounded-full bg-secondary border-2 border-background shadow-sm flex items-center justify-center text-secondary-foreground font-bold text-lg">
                     {b.name?.charAt(0).toUpperCase()}
                   </div>
                   <span className="text-xs font-medium text-muted-foreground max-w-[60px] truncate">
                     {b.name}
                   </span>
+                  {String(roomCreator) === String(session.memberId) && String(b.memberId) !== String(session.memberId) && (
+                    <div 
+                      className="absolute -top-1 -right-1 bg-destructive text-destructive-foreground rounded-full p-1 shadow-sm opacity-100 lg:opacity-0 lg:group-hover:opacity-100 transition-opacity cursor-pointer z-10"
+                      onClick={() => setMemberToDelete({ id: b.memberId, name: b.name })}
+                      title={`Remove ${b.name}`}
+                    >
+                      <Minus className="w-3.5 h-3.5" strokeWidth={3} />
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
@@ -381,6 +410,24 @@ export default function RoomDashboard() {
           <Plus className="w-6 h-6" />
         </Button>
       </div>
+
+      {/* Remove Member Modal */}
+      {memberToDelete && (
+        <div className="fixed inset-0 z-50 bg-background/80 backdrop-blur-sm flex items-center justify-center p-4">
+          <Card className="w-full max-w-sm shadow-lg border-0 animate-in fade-in zoom-in-95">
+            <CardContent className="p-6">
+              <h3 className="text-lg font-bold mb-2">Remove Member</h3>
+              <p className="text-sm text-muted-foreground mb-6">
+                Are you sure you want to remove <span className="font-semibold text-foreground">{memberToDelete.name}</span> from this room? This action cannot be undone.
+              </p>
+              <div className="flex justify-end gap-3">
+                <Button variant="ghost" onClick={() => setMemberToDelete(null)}>Cancel</Button>
+                <Button variant="destructive" onClick={handleRemoveMember}>Remove</Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
     </div>
   );
 }

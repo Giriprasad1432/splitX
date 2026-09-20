@@ -43,6 +43,21 @@ export const api = {
     return res.json();
   },
 
+  // Remove a member
+  removeMember: async (roomCode, memberId, adminId) => {
+    const res = await fetch(`${API_BASE}/${roomCode}/members/${memberId}`, {
+      method: 'DELETE',
+      headers: {
+        'memberid': adminId
+      }
+    });
+    if (!res.ok) {
+      const error = await res.json();
+      throw new Error(error.message || 'Failed to remove member');
+    }
+    return res.json();
+  },
+
   // Get all expenses
   getExpenses: async (roomCode) => {
     const res = await fetch(`${API_BASE}/${roomCode}/expenses`);

@@ -49,7 +49,10 @@ const getBalances = async (req, res) => {
 
         return res.status(200).json({
             message: "Balances calculated successfully",
-            balances: balancesArray
+            balances: balancesArray,
+            room: {
+                createdBy: req.room.createdBy
+            }
         });
 
     } catch (error) {
