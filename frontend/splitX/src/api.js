@@ -1,4 +1,4 @@
-const API_BASE = '/api/rooms';
+const API_BASE = import.meta.env.VITE_API_URL ? `${import.meta.env.VITE_API_URL}/api/rooms` : '/api/rooms';
 
 export const api = {
   // Create a new room
